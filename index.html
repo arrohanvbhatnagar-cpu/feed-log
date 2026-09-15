@@ -1,0 +1,1278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Feed Log</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#FBF5FF;
+    --bg-alt:#FFF0F8;
+    --card:#FFFFFF;
+    --ink:#2E1240;
+    --ink-soft:#7A6389;
+    --purple:#6D28D9;
+    --purple-deep:#4C1D95;
+    --purple-soft:#EDE1FB;
+    --pink:#EC4899;
+    --pink-deep:#BE185D;
+    --pink-soft:#FCE3F0;
+    --line:#EAD9F5;
+    --shadow:rgba(109,40,217,0.14);
+    --good:#16A34A;
+    --font-display:'Fraunces', serif;
+    --font-body:'Inter', sans-serif;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#1B1030;
+      --bg-alt:#231640;
+      --card:#28173F;
+      --ink:#F4E9FF;
+      --ink-soft:#C6AEDD;
+      --purple:#B294F0;
+      --purple-deep:#D8C6FA;
+      --purple-soft:#3A2456;
+      --pink:#F581B6;
+      --pink-deep:#FBB8DA;
+      --pink-soft:#3E2140;
+      --line:#3C2560;
+      --shadow:rgba(0,0,0,0.45);
+      --good:#4ADE80;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#1B1030;
+    --bg-alt:#231640;
+    --card:#28173F;
+    --ink:#F4E9FF;
+    --ink-soft:#C6AEDD;
+    --purple:#B294F0;
+    --purple-deep:#D8C6FA;
+    --purple-soft:#3A2456;
+    --pink:#F581B6;
+    --pink-deep:#FBB8DA;
+    --pink-soft:#3E2140;
+    --line:#3C2560;
+    --shadow:rgba(0,0,0,0.45);
+    --good:#4ADE80;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:var(--font-body);
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+  }
+  #app{max-width:980px;margin:0 auto;padding:28px 20px 60px;}
+  a,button{font-family:inherit;}
+  .view{display:none;}
+  .view.active{display:block;}
+
+  /* ---------- Top brand ---------- */
+  .brand{display:flex;align-items:center;gap:12px;margin-bottom:30px;}
+  .brand-mark{
+    width:44px;height:44px;border-radius:14px;
+    background:linear-gradient(135deg,var(--purple),var(--pink));
+    display:flex;align-items:center;justify-content:center;flex-shrink:0;
+    box-shadow:0 6px 16px var(--shadow);
+  }
+  .brand-mark svg{width:24px;height:24px;}
+  .brand-text h1{font-family:var(--font-display);font-size:1.5rem;margin:0;font-weight:600;letter-spacing:-0.01em;}
+  .brand-text p{margin:2px 0 0;font-size:0.85rem;color:var(--ink-soft);}
+
+  /* ---------- Home ---------- */
+  .home-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:10px;}
+  @media (max-width:640px){.home-grid{grid-template-columns:1fr;}}
+  .home-card{
+    position:relative;overflow:hidden;
+    border-radius:22px;padding:32px 26px;min-height:220px;
+    display:flex;flex-direction:column;justify-content:flex-end;
+    cursor:pointer;border:none;text-align:left;color:#fff;
+    transition:transform .18s ease, box-shadow .18s ease;
+  }
+  .home-card:hover{transform:translateY(-3px);}
+  .home-card:focus-visible{outline:3px solid var(--ink);outline-offset:3px;}
+  .home-card.record{background:linear-gradient(150deg,#F472B6 0%, #EC4899 55%, #DB2777 100%);box-shadow:0 14px 30px rgba(219,39,119,0.30);}
+  .home-card.dash{background:linear-gradient(150deg,#A78BFA 0%, #7C3AED 55%, #5B21B6 100%);box-shadow:0 14px 30px rgba(91,33,182,0.30);}
+  .home-card .blob{
+    position:absolute;width:180px;height:180px;border-radius:50%;
+    background:rgba(255,255,255,0.14);top:-60px;right:-50px;
+  }
+  .home-card .hc-icon{width:38px;height:38px;margin-bottom:14px;opacity:0.95;}
+  .home-card h2{font-family:var(--font-display);font-size:1.45rem;margin:0 0 6px;font-weight:600;}
+  .home-card p{margin:0;font-size:0.92rem;opacity:0.92;line-height:1.4;max-width:32ch;}
+  .home-foot{margin-top:26px;text-align:center;color:var(--ink-soft);font-size:0.82rem;}
+
+  /* ---------- Shared nav ---------- */
+  .backrow{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;gap:12px;flex-wrap:wrap;}
+  .back-btn{
+    display:inline-flex;align-items:center;gap:6px;background:none;border:none;
+    color:var(--purple);font-weight:600;font-size:0.9rem;cursor:pointer;padding:8px 2px;
+  }
+  .back-btn:hover{text-decoration:underline;}
+
+  /* ---------- Entry form ---------- */
+  .entry-card{
+    background:var(--card);border-radius:20px;padding:28px;
+    box-shadow:0 10px 26px var(--shadow);max-width:460px;margin:0 auto;
+  }
+  .entry-card h2{font-family:var(--font-display);margin:0 0 4px;font-size:1.3rem;}
+  .entry-card .sub{color:var(--ink-soft);font-size:0.88rem;margin:0 0 22px;}
+  .field{margin-bottom:18px;}
+  .field label{display:block;font-size:0.82rem;font-weight:600;color:var(--ink-soft);margin-bottom:6px;}
+  .field input[type="date"],
+  .field input[type="number"]{
+    width:100%;padding:11px 13px;border-radius:12px;border:1.5px solid var(--line);
+    background:var(--bg-alt);color:var(--ink);font-size:1rem;font-family:var(--font-body);
+  }
+  .field input:focus{outline:none;border-color:var(--purple);}
+  .time-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .ampm-row{display:flex;gap:8px;margin-top:10px;}
+  .ampm-btn{
+    flex:1;padding:10px;border-radius:12px;border:1.5px solid var(--line);
+    background:var(--bg-alt);color:var(--ink-soft);font-weight:700;cursor:pointer;font-size:0.9rem;
+  }
+  .ampm-btn.sel{background:linear-gradient(135deg,var(--purple),var(--pink));color:#fff;border-color:transparent;}
+  .ml-wrap{position:relative;}
+  .ml-wrap span{position:absolute;right:14px;top:50%;transform:translateY(-50%);color:var(--ink-soft);font-size:0.88rem;font-weight:600;}
+  .save-btn{
+    width:100%;padding:13px;border:none;border-radius:14px;cursor:pointer;
+    background:linear-gradient(135deg,var(--purple),var(--pink));color:#fff;font-weight:700;font-size:1rem;
+    box-shadow:0 10px 20px var(--shadow);margin-top:6px;
+  }
+  .save-btn:active{transform:translateY(1px);}
+  .success-box{
+    display:none;background:var(--purple-soft);border-radius:14px;padding:14px 16px;margin-top:18px;
+    font-size:0.9rem;color:var(--purple-deep);font-weight:600;
+  }
+  .success-box.show{display:block;}
+  .today-list{margin-top:18px;}
+  .today-list h3{font-size:0.8rem;text-transform:none;color:var(--ink-soft);margin:0 0 8px;font-weight:700;}
+  .today-row{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--line);font-size:0.9rem;}
+  .today-row:last-child{border-bottom:none;}
+  .today-row .amt{font-weight:700;color:var(--pink-deep);}
+  .goto-dash{display:inline-block;margin-top:14px;font-size:0.87rem;color:var(--purple);font-weight:700;cursor:pointer;background:none;border:none;padding:0;}
+
+  /* ---------- Dashboard ---------- */
+  .dash-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px;}
+  .dash-head h2{font-family:var(--font-display);font-size:1.5rem;margin:0;}
+  .export-row{display:flex;gap:10px;flex-wrap:wrap;}
+  .export-btn{
+    display:inline-flex;align-items:center;gap:7px;padding:9px 16px;border-radius:12px;border:1.5px solid var(--line);
+    background:var(--card);color:var(--ink);font-weight:700;font-size:0.85rem;cursor:pointer;
+  }
+  .export-btn svg{width:15px;height:15px;}
+  .export-btn.word{color:var(--purple-deep);}
+  .export-btn.excel{color:var(--pink-deep);}
+  .export-btn:hover{border-color:var(--purple);}
+
+  .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:26px;}
+  @media (max-width:800px){.kpi-grid{grid-template-columns:repeat(2,1fr);}}
+  @media (max-width:420px){.kpi-grid{grid-template-columns:1fr 1fr;}}
+  .kpi-card{
+    background:var(--card);border-radius:16px;padding:16px 16px;box-shadow:0 6px 16px var(--shadow);
+    border-top:3px solid var(--purple);
+  }
+  .kpi-card.pink{border-top-color:var(--pink);}
+  .kpi-card .kl{font-size:0.72rem;color:var(--ink-soft);font-weight:700;margin-bottom:6px;}
+  .kpi-card .kv{font-family:var(--font-display);font-size:1.35rem;font-weight:600;line-height:1.15;}
+  .kpi-card .kd{font-size:0.74rem;color:var(--ink-soft);margin-top:3px;}
+
+  .panel{background:var(--card);border-radius:20px;padding:22px;box-shadow:0 8px 22px var(--shadow);margin-bottom:22px;}
+  .panel-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:14px;}
+  .panel-head h3{font-family:var(--font-display);font-size:1.1rem;margin:0;font-weight:600;}
+  .toggle-row{display:flex;gap:6px;background:var(--bg-alt);border-radius:10px;padding:3px;}
+  .toggle-row button{
+    border:none;background:transparent;padding:6px 12px;border-radius:8px;font-size:0.78rem;font-weight:700;
+    color:var(--ink-soft);cursor:pointer;
+  }
+  .toggle-row button.sel{background:linear-gradient(135deg,var(--purple),var(--pink));color:#fff;}
+  .chart-wrap{position:relative;width:100%;height:280px;}
+  .chart-wrap.small{height:210px;}
+  .overflow-scroll{overflow-x:auto;}
+
+  .sheet-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;}
+  .sheet-row input{
+    flex:1;min-width:220px;padding:10px 12px;border-radius:12px;border:1.5px solid var(--line);
+    background:var(--bg-alt);color:var(--ink);font-family:inherit;font-size:0.88rem;
+  }
+  .sheet-row input:focus{outline:none;border-color:var(--purple);}
+  .sheet-actions{display:flex;gap:8px;flex-wrap:wrap;}
+  .sheet-status{margin-top:10px;font-size:0.82rem;color:var(--ink-soft);font-weight:600;}
+  .sheet-status.ok{color:var(--good);}
+
+  .day-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;}  @media (max-width:700px){.day-grid{grid-template-columns:1fr;}}
+  .day-picker{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+  .day-picker input[type="date"]{
+    padding:8px 10px;border-radius:10px;border:1.5px solid var(--line);background:var(--bg-alt);color:var(--ink);font-family:inherit;
+  }
+  .legend-row{display:flex;gap:16px;justify-content:center;margin-top:8px;flex-wrap:wrap;}
+  .legend-item{display:flex;align-items:center;gap:6px;font-size:0.82rem;color:var(--ink-soft);font-weight:600;}
+  .legend-dot{width:10px;height:10px;border-radius:50%;}
+  .timeline-list{display:flex;flex-direction:column;gap:8px;max-height:280px;overflow-y:auto;padding-right:4px;}
+  .tl-row{display:flex;align-items:center;gap:10px;}
+  .tl-time{width:64px;flex-shrink:0;font-size:0.78rem;color:var(--ink-soft);font-weight:600;}
+  .tl-bar-wrap{flex:1;background:var(--bg-alt);border-radius:8px;height:20px;overflow:hidden;}
+  .tl-bar{height:100%;border-radius:8px;background:linear-gradient(90deg,var(--purple),var(--pink));}
+  .tl-ml{width:56px;text-align:right;flex-shrink:0;font-size:0.8rem;font-weight:700;}
+  .empty-note{color:var(--ink-soft);font-size:0.88rem;text-align:center;padding:30px 10px;}
+
+  /* ---------- Toast ---------- */
+  #toast{
+    position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);
+    background:var(--purple-deep);color:#fff;padding:12px 20px;border-radius:12px;
+    font-size:0.88rem;font-weight:600;box-shadow:0 10px 24px rgba(0,0,0,0.25);
+    opacity:0;pointer-events:none;transition:opacity .25s ease, transform .25s ease;z-index:50;max-width:90vw;text-align:center;
+  }
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+  ::-webkit-scrollbar{height:8px;width:8px;}
+  ::-webkit-scrollbar-thumb{background:var(--line);border-radius:8px;}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <div class="brand">
+    <div class="brand-mark">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9 2h6v3.5l1.2 1.4c.5.6.8 1.4.8 2.2V20a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V9.1c0-.8.3-1.6.8-2.2L9 5.5V2Z" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/><path d="M7.3 12.5h9.4" stroke="#fff" stroke-width="1.6"/></svg>
+    </div>
+    <div class="brand-text">
+      <h1>Feed Log</h1>
+      <p>Every feed, tracked simply &mdash; stored privately on this device.</p>
+    </div>
+  </div>
+
+  <!-- HOME -->
+  <div class="view active" id="view-home">
+    <div class="home-grid">
+      <button class="home-card record" id="btn-go-entry">
+        <div class="blob"></div>
+        <svg class="hc-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 5v14M5 12h14" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/></svg>
+        <h2>Record a Feed</h2>
+        <p>Log the date, time and amount in a few taps.</p>
+      </button>
+      <button class="home-card dash" id="btn-go-dash">
+        <div class="blob"></div>
+        <svg class="hc-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 19V10M11 19V5M18 19v-7" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <h2>Dashboard</h2>
+        <p>Daily, weekly and monthly trends, at a glance.</p>
+      </button>
+    </div>
+    <p class="home-foot">Data lives only in this browser. Nothing is sent anywhere.</p>
+  </div>
+
+  <!-- ENTRY -->
+  <div class="view" id="view-entry">
+    <div class="backrow">
+      <button class="back-btn" data-go="home">&larr; Home</button>
+    </div>
+    <div class="entry-card">
+      <h2>Record a Feed</h2>
+      <p class="sub">Fill these in, then save.</p>
+      <form id="entry-form">
+        <div class="field">
+          <label for="f-date">Date</label>
+          <input type="date" id="f-date" required>
+        </div>
+        <div class="field">
+          <label>Time</label>
+          <div class="time-row">
+            <input type="number" id="f-hour" min="1" max="12" placeholder="Hour (1&ndash;12)" required>
+            <input type="number" id="f-min" min="0" max="59" placeholder="Minute (0&ndash;59)" required>
+          </div>
+        </div>
+        <div class="field">
+          <label>AM / PM</label>
+          <div class="ampm-row">
+            <button type="button" class="ampm-btn" id="btn-am" data-v="AM">AM</button>
+            <button type="button" class="ampm-btn" id="btn-pm" data-v="PM">PM</button>
+          </div>
+        </div>
+        <div class="field">
+          <label for="f-ml">Capacity</label>
+          <div class="ml-wrap">
+            <input type="number" id="f-ml" min="1" max="1000" placeholder="e.g. 150" required>
+            <span>ml</span>
+          </div>
+        </div>
+        <button type="submit" class="save-btn">Save entry</button>
+      </form>
+      <div class="success-box" id="success-box"></div>
+      <div class="today-list" id="today-list-wrap" style="display:none;">
+        <h3>Today's feeds</h3>
+        <div id="today-list"></div>
+      </div>
+      <button class="goto-dash" data-go="dashboard">View dashboard &rarr;</button>
+    </div>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div class="view" id="view-dashboard">
+    <div class="backrow">
+      <button class="back-btn" data-go="home">&larr; Home</button>
+    </div>
+    <div class="dash-head">
+      <h2>Dashboard</h2>
+      <div class="export-row">
+        <button class="export-btn word" id="btn-export-word">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 4h16v16H4z" stroke="currentColor" stroke-width="1.6"/><path d="M7 9h10M7 13h10M7 17h6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+          Word Report
+        </button>
+        <button class="export-btn excel" id="btn-export-excel">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="4" width="16" height="16" rx="2" stroke="currentColor" stroke-width="1.6"/><path d="M8 8l8 8M16 8l-8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+          Excel
+        </button>
+      </div>
+    </div>
+
+    <div class="kpi-grid" id="kpi-grid"></div>
+
+    <div class="panel" id="sheet-panel">
+      <div class="panel-head"><h3>Google Sheet sync</h3></div>
+      <p class="sub" style="margin:-6px 0 14px;color:var(--ink-soft);font-size:0.85rem;">
+        Optional: back this up to a Google Sheet so it's not stuck on one device. Needs a one-time setup (a free Google Apps Script Web App) &mdash; and only works once this page is hosted on its own website, not on this claude.ai link.
+      </p>
+      <div class="sheet-row">
+        <input type="text" id="sheet-url" placeholder="Paste your Apps Script Web App URL (ends in /exec)">
+        <button class="export-btn" id="btn-save-sheet-url">Save</button>
+      </div>
+      <div class="sheet-actions">
+        <button class="export-btn" id="btn-pull-sheet">Pull from Sheet</button>
+        <button class="export-btn" id="btn-push-sheet">Send all entries to Sheet</button>
+      </div>
+      <div id="sheet-status" class="sheet-status"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h3>Daily totals</h3>
+        <div class="toggle-row" id="range-toggle">
+          <button data-range="30">Last 30 days</button>
+          <button data-range="all" class="sel">All time</button>
+        </div>
+      </div>
+      <div class="chart-wrap"><canvas id="chart-main"></canvas></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h3>Feeds per day</h3></div>
+      <div class="chart-wrap small"><canvas id="chart-count"></canvas></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h3>Weekly average (ml/day)</h3></div>
+      <div class="chart-wrap small overflow-scroll"><canvas id="chart-weekly"></canvas></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h3>Day vs night</h3>
+        <div class="day-picker">
+          <label for="day-select" style="font-size:0.8rem;color:var(--ink-soft);font-weight:600;">Choose a day:</label>
+          <input type="date" id="day-select">
+        </div>
+      </div>
+      <div class="day-grid">
+        <div>
+          <div class="chart-wrap small"><canvas id="chart-pie"></canvas></div>
+          <div class="legend-row">
+            <div class="legend-item"><span class="legend-dot" style="background:var(--purple)"></span>Day (6am&ndash;6pm)</div>
+            <div class="legend-item"><span class="legend-dot" style="background:var(--pink)"></span>Night (6pm&ndash;6am)</div>
+          </div>
+        </div>
+        <div>
+          <div class="timeline-list" id="day-timeline"></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<div id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js" onerror="this.onerror=null;var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js';document.head.appendChild(s);"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" onerror="this.onerror=null;var s=document.createElement('script');s.src='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';document.head.appendChild(s);"></script>
+<script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.min.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  /* ============ BASE SEED DATA ============ */
+  var BASE_ENTRIES = [['2026-08-10','00:00','AM',115],['2026-08-10','10:00','AM',180],['2026-08-10','12:45','PM',90],['2026-08-10','15:00','PM',95],['2026-08-10','15:45','PM',85],['2026-08-10','19:45','PM',110],['2026-08-10','23:30','PM',100],['2026-08-11','02:30','AM',100],['2026-08-11','07:45','AM',140],['2026-08-11','12:15','PM',140],['2026-08-11','15:15','PM',100],['2026-08-11','19:00','PM',100],['2026-08-11','22:00','PM',90],['2026-08-12','01:30','AM',120],['2026-08-12','08:30','AM',180],['2026-08-12','12:45','PM',135],['2026-08-12','16:45','PM',125],['2026-08-12','21:15','PM',130],['2026-08-13','01:00','AM',120],['2026-08-13','04:30','AM',120],['2026-08-13','09:15','AM',150],['2026-08-13','13:00','PM',120],['2026-08-13','17:15','PM',120],['2026-08-13','22:45','PM',190],['2026-08-14','03:30','AM',150],['2026-08-14','07:00','AM',110],['2026-08-14','11:45','AM',145],['2026-08-14','15:15','PM',120],['2026-08-14','18:30','PM',100],['2026-08-14','23:15','PM',160],['2026-08-15','03:30','AM',130],['2026-08-15','06:30','AM',100],['2026-08-15','12:30','PM',150],['2026-08-15','15:30','PM',125],['2026-08-15','19:00','PM',125],['2026-08-15','23:15','PM',135],['2026-08-16','04:30','AM',200],['2026-08-16','11:30','AM',200],['2026-08-16','15:15','PM',130],['2026-08-16','20:30','PM',175],['2026-08-17','01:15','AM',170],['2026-08-17','06:30','AM',170],['2026-08-17','12:15','PM',180],['2026-08-17','15:45','PM',150],['2026-08-17','21:15','PM',175],['2026-08-18','01:15','AM',150],['2026-08-18','08:30','AM',200],['2026-08-18','13:45','PM',200],['2026-08-18','18:30','PM',170],['2026-08-18','22:15','PM',135],['2026-08-19','02:45','AM',160],['2026-08-19','09:30','AM',210],['2026-08-19','13:30','PM',150],['2026-08-19','18:30','PM',160],['2026-08-19','23:15','PM',150],['2026-08-20','11:30','AM',240],['2026-08-20','14:50','PM',150],['2026-08-20','16:15','PM',150],['2026-08-20','19:30','PM',160],['2026-08-20','23:30','PM',140],['2026-08-21','02:45','AM',130],['2026-08-21','08:30','AM',180],['2026-08-21','12:30','PM',150],['2026-08-21','15:00','PM',110],['2026-08-21','20:15','PM',160],['2026-08-22','00:00','AM',140],['2026-08-22','04:00','AM',160],['2026-08-22','10:00','AM',180],['2026-08-22','14:30','PM',160],['2026-08-22','19:30','PM',160],['2026-08-22','23:30','PM',170],['2026-08-23','10:30','AM',200],['2026-08-23','15:30','PM',170],['2026-08-23','16:00','PM',160],['2026-08-23','20:30','PM',190],['2026-08-23','23:30','PM',120],['2026-08-24','04:30','AM',160],['2026-08-24','11:30','AM',180],['2026-08-24','14:15','PM',140],['2026-08-24','20:30','PM',180],['2026-08-24','23:50','PM',150],['2026-08-25','05:30','AM',170],['2026-08-25','12:00','PM',240],['2026-08-25','16:00','PM',170],['2026-08-25','19:30','PM',100],['2026-08-26','04:45','AM',190],['2026-08-26','09:30','AM',140],['2026-08-26','14:15','PM',190],['2026-08-26','18:15','PM',150],['2026-08-26','22:50','PM',160],['2026-08-27','04:00','AM',190],['2026-08-27','10:30','AM',190],['2026-08-27','14:50','PM',170],['2026-08-27','20:00','PM',200],['2026-08-28','00:00','AM',150],['2026-08-28','05:30','AM',190],['2026-08-28','11:30','AM',190],['2026-08-28','17:30','PM',230],['2026-08-28','23:00','PM',200],['2026-08-29','10:00','AM',230],['2026-08-29','15:30','PM',145],['2026-08-29','15:30','PM',170],['2026-08-29','21:30','PM',220],['2026-08-30','00:30','AM',150],['2026-08-30','06:30','AM',190],['2026-08-30','11:00','AM',150],['2026-08-30','15:30','PM',170],['2026-08-30','22:30','PM',220],['2026-08-31','09:30','AM',250],['2026-08-31','15:00','PM',180],['2026-08-31','15:30','PM',140],['2026-08-31','19:30','PM',160],['2026-09-01','00:30','AM',180],['2026-09-01','07:00','AM',210],['2026-09-01','12:15','PM',210],['2026-09-01','16:30','PM',150],['2026-09-01','20:15','PM',140],['2026-09-01','23:45','PM',140],['2026-09-02','05:00','AM',180],['2026-09-02','11:15','AM',220],['2026-09-02','16:15','PM',145],['2026-09-02','22:15','PM',210],['2026-09-03','09:30','AM',230],['2026-09-03','13:30','PM',145],['2026-09-03','14:45','PM',160],['2026-09-03','17:30','PM',160],['2026-09-03','22:30','PM',200],['2026-09-04','02:45','AM',160],['2026-09-04','10:30','AM',265],['2026-09-04','14:00','PM',130],['2026-09-04','19:30','PM',210],['2026-09-04','23:30','PM',140],['2026-09-05','10:30','AM',235],['2026-09-05','14:30','PM',140],['2026-09-05','16:00','PM',160],['2026-09-05','19:00','PM',160],['2026-09-06','10:30','AM',270],['2026-09-06','11:30','AM',145],['2026-09-06','15:30','PM',180],['2026-09-06','16:30','PM',160],['2026-09-06','20:00','PM',160],['2026-09-06','23:45','PM',150],['2026-09-07','11:30','AM',250],['2026-09-07','15:30','PM',150],['2026-09-07','16:15','PM',185],['2026-09-07','20:30','PM',150],['2026-09-08','01:15','AM',195],['2026-09-08','12:00','PM',210],['2026-09-08','18:00','PM',220],['2026-09-08','18:20','PM',190],['2026-09-08','23:15','PM',180],['2026-09-09','02:30','AM',145],['2026-09-09','09:15','AM',250],['2026-09-10','10:30','AM',250],['2026-09-10','10:40','AM',270],['2026-09-10','15:00','PM',145],['2026-09-10','16:30','PM',220],['2026-09-10','23:30','PM',190],['2026-09-11','11:00','AM',260],['2026-09-11','15:30','PM',160],['2026-09-11','15:30','PM',190],['2026-09-11','20:00','PM',160],['2026-09-12','11:30','AM',220],['2026-09-12','12:00','PM',145],['2026-09-12','16:30','PM',160],['2026-09-12','22:30','PM',220],['2026-09-13','03:30','AM',160],['2026-09-13','04:00','AM',170],['2026-09-13','11:30','AM',270]];
+
+  var STORAGE_KEY = 'feedlog_entries_v1';
+  var entries = [];
+
+  function loadEntries(){
+    try{
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if(raw){
+        var parsed = JSON.parse(raw);
+        if(Array.isArray(parsed) && parsed.length){ return parsed; }
+      }
+    }catch(e){ /* ignore, fall through to seed */ }
+    var seeded = BASE_ENTRIES.map(function(r){ return {date:r[0], time:r[1], ampm:r[2], ml:r[3]}; });
+    try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(seeded)); }catch(e){}
+    return seeded;
+  }
+
+  function persist(){
+    try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(entries)); }
+    catch(e){ showToast("Couldn't save to this browser's storage."); }
+  }
+
+  entries = loadEntries();
+
+  /* ============ GOOGLE SHEET SYNC ============ */
+  var SHEET_URL_KEY = 'feedlog_sheet_url';
+  function getSheetUrl(){
+    try{ return localStorage.getItem(SHEET_URL_KEY) || ''; }catch(e){ return ''; }
+  }
+  function setSheetUrl(url){
+    try{ localStorage.setItem(SHEET_URL_KEY, url); }catch(e){}
+  }
+  function entryKey(e){ return e.date+'|'+e.time+'|'+e.ml; }
+
+  function mergeEntries(list){
+    var seen = {};
+    entries.forEach(function(e){ seen[entryKey(e)] = true; });
+    var added = 0;
+    (list||[]).forEach(function(e){
+      if(!e || !e.date || !e.time || !e.ml) return;
+      var k = entryKey(e);
+      if(!seen[k]){
+        entries.push({date:e.date, time:e.time, ampm:e.ampm||(parseInt(e.time,10)>=12?'PM':'AM'), ml:Number(e.ml)});
+        seen[k] = true; added++;
+      }
+    });
+    if(added){
+      entries.sort(function(a,b){ return (a.date+'T'+a.time).localeCompare(b.date+'T'+b.time); });
+      persist();
+    }
+    return added;
+  }
+
+  function postToSheet(action, payload){
+    var url = getSheetUrl();
+    if(!url) return Promise.reject(new Error('no_url'));
+    var body = JSON.stringify(Object.assign({action:action}, payload));
+    return fetch(url, {
+      method:'POST',
+      headers:{'Content-Type':'text/plain;charset=utf-8'},
+      body: body
+    }).then(function(res){
+      if(!res.ok) throw new Error('http_'+res.status);
+      return res.json().catch(function(){ return {}; });
+    });
+  }
+
+  function pullFromSheet(showFeedback){
+    var url = getSheetUrl();
+    if(!url){ if(showFeedback) showToast('Paste your Apps Script Web App URL first.'); return Promise.resolve(0); }
+    return fetch(url, {method:'GET'})
+      .then(function(res){ return res.json(); })
+      .then(function(data){
+        var added = mergeEntries(data && data.entries);
+        if(document.getElementById('view-dashboard').classList.contains('active')) renderDashboard();
+        setSheetStatus('Connected \u2014 last pulled just now.', true);
+        if(showFeedback) showToast(added ? (added+' new entr'+(added===1?'y':'ies')+' pulled from your Sheet.') : "You're already up to date with the Sheet.");
+        return added;
+      })
+      .catch(function(err){
+        setSheetStatus("Couldn't reach the Sheet. Check the URL and that it's deployed with access set to \u201cAnyone.\u201d", false);
+        if(showFeedback) showToast("Couldn't reach the Sheet.");
+        return 0;
+      });
+  }
+
+  function setSheetStatus(text, ok){
+    var el = document.getElementById('sheet-status');
+    if(!el) return;
+    el.textContent = text;
+    el.classList.toggle('ok', !!ok);
+  }
+
+  document.getElementById('btn-save-sheet-url').addEventListener('click', function(){
+    var val = document.getElementById('sheet-url').value.trim();
+    if(!val){ showToast('Paste the Web App URL first.'); return; }
+    setSheetUrl(val);
+    showToast('Sheet URL saved on this device.');
+    pullFromSheet(true);
+  });
+  document.getElementById('btn-pull-sheet').addEventListener('click', function(){ pullFromSheet(true); });
+  document.getElementById('btn-push-sheet').addEventListener('click', function(){
+    var url = getSheetUrl();
+    if(!url){ showToast('Paste your Apps Script Web App URL first.'); return; }
+    setSheetStatus('Sending '+entries.length+' entries\u2026', true);
+    postToSheet('bulk', {entries: entries}).then(function(){
+      setSheetStatus('Sent '+entries.length+' entries to your Sheet.', true);
+      showToast('Sent all entries to your Sheet.');
+    }).catch(function(){
+      setSheetStatus("Couldn't reach the Sheet. Check the URL and access settings.", false);
+      showToast("Couldn't reach the Sheet.");
+    });
+  });
+
+  /* ============ HELPERS ============ */
+  function pad2(n){ return String(n).padStart(2,'0'); }
+
+  function todayStr(){
+    var d = new Date();
+    return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate());
+  }
+
+  function to24(hour12, minute, ampm){
+    var h = parseInt(hour12,10) % 12;
+    if(ampm === 'PM') h += 12;
+    return pad2(h)+':'+pad2(parseInt(minute,10));
+  }
+
+  function fmt12(time24){
+    var parts = time24.split(':');
+    var h = parseInt(parts[0],10), m = parts[1];
+    var ap = h >= 12 ? 'PM' : 'AM';
+    var h12 = h % 12; if(h12===0) h12 = 12;
+    return h12+':'+m+' '+ap;
+  }
+
+  function fmtShort(dateStr){
+    var d = new Date(dateStr+'T00:00:00');
+    return d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+  }
+  function fmtLong(dateStr){
+    var d = new Date(dateStr+'T00:00:00');
+    return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+  }
+
+  function lastNDates(n){
+    var out = []; var now = new Date();
+    for(var i=0;i<n;i++){
+      var dd = new Date(now.getFullYear(), now.getMonth(), now.getDate()-i);
+      out.push(dd.getFullYear()+'-'+pad2(dd.getMonth()+1)+'-'+pad2(dd.getDate()));
+    }
+    return out;
+  }
+
+  function dateRangeArray(startDate, endDate){
+    var out = [];
+    var d = new Date(startDate+'T00:00:00');
+    var end = new Date(endDate+'T00:00:00');
+    var guard = 0;
+    while(d <= end && guard < 4000){
+      out.push(d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()));
+      d.setDate(d.getDate()+1);
+      guard++;
+    }
+    return out;
+  }
+
+  function cssVar(name){
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  }
+
+  function showToast(msg){
+    var t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(showToast._tm);
+    showToast._tm = setTimeout(function(){ t.classList.remove('show'); }, 3200);
+  }
+
+  /* ============ AGGREGATION ============ */
+  function dailyTotals(){
+    var map = {};
+    entries.forEach(function(e){
+      if(!map[e.date]) map[e.date] = {total:0, count:0};
+      map[e.date].total += e.ml;
+      map[e.date].count += 1;
+    });
+    return map;
+  }
+
+  function statsForDates(dates, dt){
+    var sum=0, count=0, high=null;
+    dates.forEach(function(date){
+      var d = dt[date];
+      if(d){
+        sum += d.total; count++;
+        if(!high || d.total > high.total) high = {date:date, total:d.total};
+      }
+    });
+    return {avg: count ? Math.round(sum/count) : 0, high: high};
+  }
+
+  function highestDayAll(dt){
+    var high = null;
+    Object.keys(dt).forEach(function(date){
+      if(!high || dt[date].total > high.total) high = {date:date, total:dt[date].total};
+    });
+    return high;
+  }
+
+  function computeKPIs(){
+    var dt = dailyTotals();
+    var today = todayStr();
+    var todayData = dt[today];
+    var last7 = lastNDates(7);
+    var last30 = lastNDates(30);
+    var weekly = statsForDates(last7, dt);
+    var monthly = statsForDates(last30, dt);
+    var overall = highestDayAll(dt);
+    var topFeed = highestSingleFeed();
+    return {
+      hasToday: !!todayData,
+      todayTotal: todayData ? todayData.total : 0,
+      todayAvg: todayData ? Math.round(todayData.total/todayData.count) : 0,
+      weeklyAvg: weekly.avg, weeklyHigh: weekly.high,
+      monthlyAvg: monthly.avg, monthlyHigh: monthly.high,
+      overallHigh: overall,
+      topFeed: topFeed
+    };
+  }
+
+  function highestSingleFeed(){
+    var best = null;
+    entries.forEach(function(e){
+      if(!best || e.ml > best.ml) best = e;
+    });
+    return best;
+  }
+
+  function dayNightSplit(date){
+    var day=0, night=0;
+    entries.filter(function(e){ return e.date===date; }).forEach(function(e){
+      var h = parseInt(e.time.split(':')[0],10);
+      if(h>=6 && h<18) day += e.ml; else night += e.ml;
+    });
+    return {day:day, night:night};
+  }
+
+  function weeklyBuckets(){
+    var dt = dailyTotals();
+    var dates = Object.keys(dt).sort();
+    if(!dates.length) return [];
+    var buckets = {}; // key: monday date string -> {sum,count,start}
+    dates.forEach(function(date){
+      var d = new Date(date+'T00:00:00');
+      var day = d.getDay(); // 0 Sun..6 Sat
+      var diffToMon = (day===0? -6 : 1-day);
+      var monday = new Date(d); monday.setDate(d.getDate()+diffToMon);
+      var key = monday.getFullYear()+'-'+pad2(monday.getMonth()+1)+'-'+pad2(monday.getDate());
+      if(!buckets[key]) buckets[key] = {sum:0,count:0,start:key};
+      buckets[key].sum += dt[date].total;
+      buckets[key].count += 1;
+    });
+    return Object.keys(buckets).sort().map(function(k){
+      var b = buckets[k];
+      var start = new Date(k+'T00:00:00');
+      var end = new Date(start); end.setDate(start.getDate()+6);
+      return {
+        label: start.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + '\u2013' + end.toLocaleDateString('en-US',{day:'numeric'}),
+        avg: Math.round(b.sum / b.count)
+      };
+    });
+  }
+
+  /* ============ VIEW SWITCHING ============ */
+  function showView(name){
+    document.querySelectorAll('.view').forEach(function(v){ v.classList.remove('active'); });
+    document.getElementById('view-'+name).classList.add('active');
+    window.scrollTo({top:0, behavior:'instant'});
+  }
+
+  document.getElementById('btn-go-entry').addEventListener('click', function(){
+    resetEntryForm();
+    showView('entry');
+  });
+  document.getElementById('btn-go-dash').addEventListener('click', function(){
+    showView('dashboard');
+    requestAnimationFrame(renderDashboard);
+  });
+  document.querySelectorAll('[data-go]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var target = btn.getAttribute('data-go');
+      showView(target);
+      if(target === 'dashboard') requestAnimationFrame(renderDashboard);
+    });
+  });
+
+  /* ============ ENTRY FORM ============ */
+  var selectedAmpm = null;
+  document.getElementById('btn-am').addEventListener('click', function(){ setAmpm('AM'); });
+  document.getElementById('btn-pm').addEventListener('click', function(){ setAmpm('PM'); });
+  function setAmpm(v){
+    selectedAmpm = v;
+    document.getElementById('btn-am').classList.toggle('sel', v==='AM');
+    document.getElementById('btn-pm').classList.toggle('sel', v==='PM');
+  }
+
+  function resetEntryForm(){
+    document.getElementById('f-date').value = todayStr();
+    document.getElementById('f-hour').value = '';
+    document.getElementById('f-min').value = '';
+    document.getElementById('f-ml').value = '';
+    var now = new Date();
+    setAmpm(now.getHours() >= 12 ? 'PM' : 'AM');
+    document.getElementById('success-box').classList.remove('show');
+    renderTodayList();
+  }
+
+  function renderTodayList(){
+    var date = document.getElementById('f-date').value || todayStr();
+    var todays = entries.filter(function(e){ return e.date===date; })
+      .slice().sort(function(a,b){ return a.time.localeCompare(b.time); });
+    var wrap = document.getElementById('today-list-wrap');
+    var list = document.getElementById('today-list');
+    if(!todays.length){ wrap.style.display = 'none'; return; }
+    wrap.style.display = 'block';
+    list.innerHTML = todays.map(function(e){
+      return '<div class="today-row"><span>'+fmt12(e.time)+'</span><span class="amt">'+e.ml+' ml</span></div>';
+    }).join('');
+  }
+  document.getElementById('f-date').addEventListener('change', renderTodayList);
+
+  document.getElementById('entry-form').addEventListener('submit', function(ev){
+    ev.preventDefault();
+    var date = document.getElementById('f-date').value;
+    var hour = document.getElementById('f-hour').value;
+    var min = document.getElementById('f-min').value;
+    var ml = document.getElementById('f-ml').value;
+
+    if(!date || !hour || min==='' || !ml || !selectedAmpm){
+      showToast('Please fill in every field.');
+      return;
+    }
+    hour = parseInt(hour,10); min = parseInt(min,10); ml = parseInt(ml,10);
+    if(hour<1 || hour>12){ showToast('Hour should be between 1 and 12.'); return; }
+    if(min<0 || min>59){ showToast('Minute should be between 0 and 59.'); return; }
+    if(ml<1 || ml>1000){ showToast('Capacity should be a realistic ml value.'); return; }
+
+    var time24 = to24(hour, min, selectedAmpm);
+    var newEntry = {date:date, time:time24, ampm:selectedAmpm, ml:ml};
+    entries.push(newEntry);
+    entries.sort(function(a,b){ return (a.date+'T'+a.time).localeCompare(b.date+'T'+b.time); });
+    persist();
+
+    var box = document.getElementById('success-box');
+    box.textContent = 'Saved: '+fmtLong(date)+' at '+fmt12(time24)+' \u2014 '+ml+' ml';
+    box.classList.add('show');
+
+    if(getSheetUrl()){
+      postToSheet('append', {entry:newEntry}).then(function(){
+        box.textContent += ' (synced to Sheet)';
+      }).catch(function(){
+        box.textContent += ' (saved here; Sheet sync failed)';
+      });
+    }
+
+    document.getElementById('f-hour').value = '';
+    document.getElementById('f-min').value = '';
+    document.getElementById('f-ml').value = '';
+    document.getElementById('f-hour').focus();
+    renderTodayList();
+  });
+
+  /* ============ CHARTS ============ */
+  var charts = {};
+  var chartRange = 'all';
+
+  function destroyChart(key){
+    if(charts[key]){ charts[key].destroy(); charts[key] = null; }
+  }
+
+  var dataLabelPlugin = {
+    id: 'flDataLabels',
+    afterDatasetsDraw: function(chart){
+      var ctx = chart.ctx;
+      chart.data.datasets.forEach(function(dataset, dsIndex){
+        if(!dataset.showDataLabels) return;
+        var meta = chart.getDatasetMeta(dsIndex);
+        if(meta.hidden) return;
+        meta.data.forEach(function(point, idx){
+          var val = dataset.data[idx];
+          if(val === null || val === undefined) return;
+          ctx.save();
+          ctx.fillStyle = dataset.labelColor || '#4C1D95';
+          ctx.font = '700 10.5px Inter, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'bottom';
+          ctx.fillText(String(val), point.x, point.y - 6);
+          ctx.restore();
+        });
+      });
+    }
+  };
+
+  function avgAnnotationPlugin(avgLabelText, color){
+    return {
+      id: 'flAvgLabel',
+      afterDraw: function(chart){
+        var ctx = chart.ctx;
+        var area = chart.chartArea;
+        if(!area) return;
+        ctx.save();
+        ctx.fillStyle = color;
+        ctx.font = '700 11px Inter, sans-serif';
+        ctx.textAlign = 'right';
+        ctx.fillText(avgLabelText, area.right, area.top + 14);
+        ctx.restore();
+      }
+    };
+  }
+
+  function renderMainChart(){
+    var dt = dailyTotals();
+    var allDates = Object.keys(dt).sort();
+    if(!allDates.length){ return; }
+    var today = todayStr();
+    var lastData = allDates[allDates.length-1];
+    var maxDate = lastData > today ? lastData : today;
+    var dates;
+    if(chartRange === '30'){
+      dates = lastNDates(30).slice().sort();
+    } else {
+      dates = dateRangeArray(allDates[0], maxDate);
+    }
+    var values = dates.map(function(d){ return dt[d] ? dt[d].total : null; });
+    var nonNull = values.filter(function(v){ return v !== null; });
+    var avg = nonNull.length ? Math.round(nonNull.reduce(function(a,b){ return a+b; },0)/nonNull.length) : 0;
+
+    var purple = cssVar('--purple'), pink = cssVar('--pink'), purpleDeep = cssVar('--purple-deep');
+    var ink = cssVar('--ink-soft'), line = cssVar('--line');
+
+    destroyChart('main');
+    var ctx = document.getElementById('chart-main').getContext('2d');
+    charts.main = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: dates.map(fmtShort),
+        datasets: [
+          {
+            label: 'Daily total (ml)',
+            data: values,
+            borderColor: purple,
+            backgroundColor: hexToRgba(purple, 0.14),
+            fill: true,
+            tension: 0.3,
+            spanGaps: false,
+            pointRadius: dates.length > 45 ? 0 : 3.5,
+            pointBackgroundColor: pink,
+            pointBorderColor: '#fff',
+            pointBorderWidth: 1.2,
+            showDataLabels: dates.length <= 20,
+            labelColor: purpleDeep
+          },
+          {
+            label: 'Average',
+            data: dates.map(function(){ return avg; }),
+            borderColor: pink,
+            borderDash: [6,5],
+            borderWidth: 2,
+            pointRadius: 0,
+            fill: false,
+            spanGaps: true
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { display: true, labels: { color: ink, font: { family: 'Inter', size: 11 }, boxWidth: 12 } },
+          tooltip: {
+            callbacks: {
+              label: function(item){
+                if(item.dataset.label === 'Average') return 'Average: '+avg+' ml';
+                return (item.formattedValue === null ? 'No data' : item.formattedValue+' ml');
+              }
+            }
+          }
+        },
+        scales: {
+          x: { ticks: { color: ink, maxRotation: 0, autoSkip: true, font:{size:10} }, grid: { color: line } },
+          y: { ticks: { color: ink, font:{size:10} }, grid: { color: line }, title: { display:true, text:'ml', color: ink } }
+        }
+      },
+      plugins: [dataLabelPlugin, avgAnnotationPlugin('Avg: '+avg+' ml/day', purpleDeep)]
+    });
+  }
+
+  function renderCountChart(){
+    var dt = dailyTotals();
+    var allDates = Object.keys(dt).sort();
+    if(!allDates.length) return;
+    var today = todayStr();
+    var lastData = allDates[allDates.length-1];
+    var maxDate = lastData > today ? lastData : today;
+    var dates = chartRange === '30' ? lastNDates(30).slice().sort() : dateRangeArray(allDates[0], maxDate);
+    var counts = dates.map(function(d){ return dt[d] ? dt[d].count : null; });
+
+    var pink = cssVar('--pink'), purple = cssVar('--purple'), ink = cssVar('--ink-soft'), line = cssVar('--line');
+    destroyChart('count');
+    var ctx = document.getElementById('chart-count').getContext('2d');
+    charts.count = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: dates.map(fmtShort),
+        datasets: [{ label:'Feeds', data: counts, backgroundColor: hexToRgba(pink,0.75), borderRadius:4, maxBarThickness: 22 }]
+      },
+      options: {
+        responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{display:false} },
+        scales:{
+          x:{ ticks:{color:ink, maxRotation:0, autoSkip:true, font:{size:10}}, grid:{display:false} },
+          y:{ ticks:{color:ink, stepSize:1, font:{size:10}}, grid:{color:line}, title:{display:true,text:'feeds',color:ink} }
+        }
+      }
+    });
+  }
+
+  function renderWeeklyChart(){
+    var buckets = weeklyBuckets();
+    var purple = cssVar('--purple'), ink = cssVar('--ink-soft'), line = cssVar('--line');
+    destroyChart('weekly');
+    var ctx = document.getElementById('chart-weekly').getContext('2d');
+    var minWidth = Math.max(buckets.length * 70, 300);
+    document.getElementById('chart-weekly').parentElement.style.minWidth = minWidth+'px';
+    charts.weekly = new Chart(ctx, {
+      type:'bar',
+      data:{
+        labels: buckets.map(function(b){ return b.label; }),
+        datasets:[{ label:'Avg ml/day', data: buckets.map(function(b){ return b.avg; }), backgroundColor: hexToRgba(purple,0.8), borderRadius:6, maxBarThickness:38 }]
+      },
+      options:{
+        responsive:true, maintainAspectRatio:false,
+        plugins:{
+          legend:{display:false},
+          tooltip:{ callbacks:{ label: function(item){ return item.formattedValue+' ml/day'; } } }
+        },
+        scales:{
+          x:{ ticks:{color:ink, font:{size:10}}, grid:{display:false} },
+          y:{ ticks:{color:ink, font:{size:10}}, grid:{color:line}, title:{display:true,text:'ml/day',color:ink} }
+        }
+      },
+      plugins:[dataLabelPlugin]
+    });
+    charts.weekly.data.datasets[0].showDataLabels = true;
+    charts.weekly.data.datasets[0].labelColor = cssVar('--purple-deep');
+    charts.weekly.update();
+  }
+
+  function renderPieAndTimeline(){
+    var dateInput = document.getElementById('day-select');
+    var date = dateInput.value;
+    var split = dayNightSplit(date);
+    var purple = cssVar('--purple'), pink = cssVar('--pink');
+
+    destroyChart('pie');
+    var ctx = document.getElementById('chart-pie').getContext('2d');
+    if(split.day===0 && split.night===0){
+      charts.pie = null;
+    } else {
+      charts.pie = new Chart(ctx, {
+        type:'pie',
+        data:{
+          labels:['Day (6am\u20136pm)','Night (6pm\u20136am)'],
+          datasets:[{ data:[split.day, split.night], backgroundColor:[purple, pink], borderColor: cssVar('--card'), borderWidth:2 }]
+        },
+        options:{
+          responsive:true, maintainAspectRatio:false,
+          plugins:{
+            legend:{display:false},
+            tooltip:{ callbacks:{ label:function(item){
+              var total = split.day+split.night;
+              var pct = total? Math.round(item.parsed/total*100) : 0;
+              return item.label+': '+item.parsed+' ml ('+pct+'%)';
+            } } }
+          }
+        }
+      });
+    }
+
+    var todays = entries.filter(function(e){ return e.date===date; })
+      .slice().sort(function(a,b){ return a.time.localeCompare(b.time); });
+    var tl = document.getElementById('day-timeline');
+    if(!todays.length){
+      tl.innerHTML = '<div class="empty-note">No feeds recorded for this day.</div>';
+      return;
+    }
+    var maxMl = Math.max.apply(null, todays.map(function(e){ return e.ml; }));
+    tl.innerHTML = todays.map(function(e){
+      var w = Math.max(6, Math.round(e.ml/maxMl*100));
+      return '<div class="tl-row"><span class="tl-time">'+fmt12(e.time)+'</span>'+
+        '<div class="tl-bar-wrap"><div class="tl-bar" style="width:'+w+'%"></div></div>'+
+        '<span class="tl-ml">'+e.ml+' ml</span></div>';
+    }).join('');
+  }
+
+  function hexToRgba(hex, alpha){
+    hex = hex.replace('#','');
+    if(hex.length===3){ hex = hex.split('').map(function(c){return c+c;}).join(''); }
+    var r = parseInt(hex.substring(0,2),16), g = parseInt(hex.substring(2,4),16), b = parseInt(hex.substring(4,6),16);
+    if(isNaN(r) || isNaN(g) || isNaN(b)) return hex;
+    return 'rgba('+r+','+g+','+b+','+alpha+')';
+  }
+
+  /* ============ KPI RENDER ============ */
+  function renderKpis(){
+    var k = computeKPIs();
+    var cards = [
+      { l:"Today's total", v: k.hasToday ? k.todayTotal+' ml' : '\u2014', d: k.hasToday ? '' : 'No entries yet today', pink:true },
+      { l:"Today's average", v: k.hasToday ? k.todayAvg+' ml/feed' : '\u2014', d: '' },
+      { l:'Weekly average', v: k.weeklyAvg+' ml/day', d: 'Last 7 days', pink:true },
+      { l:'Monthly average', v: k.monthlyAvg+' ml/day', d: 'Last 30 days' },
+      { l:"Week's highest day", v: k.weeklyHigh ? k.weeklyHigh.total+' ml' : '\u2014', d: k.weeklyHigh ? fmtShort(k.weeklyHigh.date) : '', pink:true },
+      { l:"Month's highest day", v: k.monthlyHigh ? k.monthlyHigh.total+' ml' : '\u2014', d: k.monthlyHigh ? fmtShort(k.monthlyHigh.date) : '' },
+      { l:'Highest single feed', v: k.topFeed ? k.topFeed.ml+' ml' : '\u2014', d: k.topFeed ? fmtShort(k.topFeed.date)+' at '+fmt12(k.topFeed.time) : '', pink:true }
+    ];
+    var grid = document.getElementById('kpi-grid');
+    grid.innerHTML = cards.map(function(c){
+      return '<div class="kpi-card'+(c.pink?' pink':'')+'"><div class="kl">'+c.l+'</div><div class="kv">'+c.v+'</div><div class="kd">'+c.d+'</div></div>';
+    }).join('');
+  }
+
+  /* ============ DASHBOARD ORCHESTRATION ============ */
+  function chartErrorMsg(canvasId){
+    var canvas = document.getElementById(canvasId);
+    if(!canvas) return;
+    var wrap = canvas.parentElement;
+    wrap.innerHTML = '<div class="empty-note">This chart couldn\'t load (your connection or an ad-blocker may be blocking the chart library). Everything else on this page still works &mdash; try refreshing.</div>';
+  }
+
+  function safeRender(fn, canvasId){
+    try{
+      if(typeof Chart === 'undefined') throw new Error('Chart.js not loaded');
+      fn();
+    }catch(e){
+      console.error('Chart render failed:', e);
+      chartErrorMsg(canvasId);
+    }
+  }
+
+  function renderDashboard(){
+    var savedUrl = getSheetUrl();
+    var urlInput = document.getElementById('sheet-url');
+    if(savedUrl && !urlInput.value) urlInput.value = savedUrl;
+    setSheetStatus(savedUrl ? 'Connected to your Sheet on this device.' : 'Not connected yet.', !!savedUrl);
+
+    renderKpis();
+    safeRender(renderMainChart, 'chart-main');
+    safeRender(renderCountChart, 'chart-count');
+    safeRender(renderWeeklyChart, 'chart-weekly');
+
+    var dateInput = document.getElementById('day-select');
+    if(!dateInput.value){
+      var dt = dailyTotals();
+      var allDates = Object.keys(dt).sort();
+      dateInput.value = allDates.length ? allDates[allDates.length-1] : todayStr();
+    }
+    safeRender(renderPieAndTimeline, 'chart-pie');
+  }
+
+  document.getElementById('day-select').addEventListener('change', function(){
+    safeRender(renderPieAndTimeline, 'chart-pie');
+  });
+
+  document.getElementById('range-toggle').addEventListener('click', function(ev){
+    var btn = ev.target.closest('button[data-range]');
+    if(!btn) return;
+    chartRange = btn.getAttribute('data-range');
+    document.querySelectorAll('#range-toggle button').forEach(function(b){ b.classList.toggle('sel', b===btn); });
+    safeRender(renderMainChart, 'chart-main');
+    safeRender(renderCountChart, 'chart-count');
+  });
+
+  /* ============ EXPORTS ============ */
+  var downloadsCap = null;
+  function initCapabilities(){
+    try{
+      if(window.claude && typeof window.claude.use === 'function'){
+        window.claude.use('downloads').then(function(cap){ downloadsCap = cap; }).catch(function(){ downloadsCap = null; });
+      }
+    }catch(e){ downloadsCap = null; }
+  }
+  initCapabilities();
+
+  function browserDownload(filename, data){
+    try{
+      var blob = data instanceof Blob ? data : new Blob([data]);
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(function(){ URL.revokeObjectURL(url); }, 4000);
+      showToast('Downloaded '+filename);
+      return true;
+    }catch(e){
+      showToast('Could not download the file.');
+      return false;
+    }
+  }
+
+  function saveFile(filename, data){
+    return new Promise(function(resolve){
+      var isClaudeArtifact = !!(window.claude && typeof window.claude.use === 'function');
+      function attempt(){
+        if(!downloadsCap){
+          resolve(browserDownload(filename, data));
+          return;
+        }
+        downloadsCap.save({filename:filename, data:data}).then(function(res){
+          showToast(res.status === 'saved' ? 'Saved '+filename : 'File sent.');
+          resolve(true);
+        }).catch(function(err){
+          if(err && err.code === 'declined'){ resolve(false); return; }
+          resolve(browserDownload(filename, data));
+        });
+      }
+      if(!downloadsCap && isClaudeArtifact){
+        window.claude.use('downloads').then(function(cap){ downloadsCap = cap; attempt(); }).catch(function(){ attempt(); });
+      } else {
+        attempt();
+      }
+    });
+  }
+
+  document.getElementById('btn-export-excel').addEventListener('click', function(){
+    if(typeof XLSX === 'undefined'){ showToast('Excel export failed to load.'); return; }
+    var entriesSorted = entries.slice().sort(function(a,b){ return (a.date+a.time).localeCompare(b.date+b.time); });
+    var wb = XLSX.utils.book_new();
+
+    var wsEntries = XLSX.utils.json_to_sheet(entriesSorted.map(function(e){
+      return { Date: e.date, Time: fmt12(e.time), 'AM/PM': e.ampm, 'Capacity (ml)': e.ml };
+    }));
+    XLSX.utils.book_append_sheet(wb, wsEntries, 'Entries');
+
+    var dt = dailyTotals();
+    var dailyRows = Object.keys(dt).sort().map(function(date){
+      var d = dt[date];
+      return { Date: date, 'Total (ml)': d.total, Feeds: d.count, 'Avg per feed (ml)': Math.round(d.total/d.count) };
+    });
+    var wsDaily = XLSX.utils.json_to_sheet(dailyRows);
+    XLSX.utils.book_append_sheet(wb, wsDaily, 'Daily Summary');
+
+    var k = computeKPIs();
+    var kpiRows = [
+      {Metric:"Today's total (ml)", Value: k.todayTotal},
+      {Metric:"Today's average (ml/feed)", Value: k.todayAvg},
+      {Metric:'Weekly average (ml/day)', Value: k.weeklyAvg},
+      {Metric:'Monthly average (ml/day)', Value: k.monthlyAvg},
+      {Metric:"Week's highest day", Value: k.weeklyHigh ? k.weeklyHigh.date+' \u2014 '+k.weeklyHigh.total+' ml' : '\u2014'},
+      {Metric:"Month's highest day", Value: k.monthlyHigh ? k.monthlyHigh.date+' \u2014 '+k.monthlyHigh.total+' ml' : '\u2014'},
+      {Metric:'Highest single feed', Value: k.topFeed ? k.topFeed.ml+' ml on '+k.topFeed.date+' at '+fmt12(k.topFeed.time) : '\u2014'}
+    ];
+    var wsKpi = XLSX.utils.json_to_sheet(kpiRows);
+    XLSX.utils.book_append_sheet(wb, wsKpi, 'KPIs');
+
+    var wbout = XLSX.write(wb, {bookType:'xlsx', type:'array'});
+    var blob = new Blob([wbout], {type:'application/octet-stream'});
+    saveFile('Feed-Log-Data.xlsx', blob);
+  });
+
+  document.getElementById('btn-export-word').addEventListener('click', function(){
+    if(typeof docx === 'undefined'){ showToast('Word export failed to load.'); return; }
+    buildAndSaveWord().catch(function(){ showToast('Could not build the Word report.'); });
+  });
+
+  function buildAndSaveWord(){
+    var Document = docx.Document, Packer = docx.Packer, Paragraph = docx.Paragraph,
+        TextRun = docx.TextRun, HeadingLevel = docx.HeadingLevel, Table = docx.Table,
+        TableRow = docx.TableRow, TableCell = docx.TableCell, WidthType = docx.WidthType,
+        AlignmentType = docx.AlignmentType;
+
+    var k = computeKPIs();
+    var dt = dailyTotals();
+    var allDates = Object.keys(dt).sort();
+    var entriesSorted = entries.slice().sort(function(a,b){ return (a.date+a.time).localeCompare(b.date+b.time); });
+
+    function headCell(text, fill){
+      return new TableCell({
+        shading:{fill:fill},
+        children:[new Paragraph({children:[new TextRun({text:text, bold:true, color:'FFFFFF'})]})]
+      });
+    }
+    function cell(text){
+      return new TableCell({children:[new Paragraph(String(text))]});
+    }
+    function labelCell(text){
+      return new TableCell({
+        width:{size:50, type:WidthType.PERCENTAGE},
+        shading:{fill:'EDE1FB'},
+        children:[new Paragraph({children:[new TextRun({text:text, bold:true, color:'4C1D95'})]})]
+      });
+    }
+    function valCell(text){
+      return new TableCell({ width:{size:50, type:WidthType.PERCENTAGE}, children:[new Paragraph(String(text))] });
+    }
+
+    var kpiPairs = [
+      ["Today's total", k.hasToday ? k.todayTotal+' ml' : 'No entries yet'],
+      ["Today's average per feed", k.hasToday ? k.todayAvg+' ml' : '\u2014'],
+      ['Weekly average (ml/day)', k.weeklyAvg+' ml'],
+      ['Monthly average (ml/day)', k.monthlyAvg+' ml'],
+      ["Week's highest day", k.weeklyHigh ? fmtLong(k.weeklyHigh.date)+' \u2014 '+k.weeklyHigh.total+' ml' : '\u2014'],
+      ["Month's highest day", k.monthlyHigh ? fmtLong(k.monthlyHigh.date)+' \u2014 '+k.monthlyHigh.total+' ml' : '\u2014'],
+      ['Highest single feed', k.topFeed ? k.topFeed.ml+' ml \u2014 '+fmtLong(k.topFeed.date)+' at '+fmt12(k.topFeed.time) : '\u2014']
+    ];
+    var kpiTable = new Table({
+      width:{size:100, type:WidthType.PERCENTAGE},
+      rows: kpiPairs.map(function(p){ return new TableRow({children:[labelCell(p[0]), valCell(p[1])]}); })
+    });
+
+    var dailyRows = [ new TableRow({children:[
+      headCell('Date','6D28D9'), headCell('Total (ml)','6D28D9'), headCell('Feeds','6D28D9'), headCell('Avg per feed (ml)','6D28D9')
+    ]}) ].concat(allDates.map(function(date){
+      var d = dt[date];
+      return new TableRow({children:[ cell(fmtLong(date)), cell(d.total), cell(d.count), cell(Math.round(d.total/d.count)) ]});
+    }));
+    var dailyTable = new Table({ width:{size:100, type:WidthType.PERCENTAGE}, rows: dailyRows });
+
+    var entryRows = [ new TableRow({children:[
+      headCell('Date','EC4899'), headCell('Time','EC4899'), headCell('Capacity (ml)','EC4899')
+    ]}) ].concat(entriesSorted.map(function(e){
+      return new TableRow({children:[ cell(fmtLong(e.date)), cell(fmt12(e.time)), cell(e.ml) ]});
+    }));
+    var entryTable = new Table({ width:{size:100, type:WidthType.PERCENTAGE}, rows: entryRows });
+
+    var doc = new Document({
+      sections:[{
+        properties:{},
+        children:[
+          new Paragraph({text:'Feed Log Report', heading:HeadingLevel.TITLE}),
+          new Paragraph({children:[new TextRun({text:'Generated '+new Date().toLocaleString(), italics:true, color:'7A6389'})], spacing:{after:300}}),
+          new Paragraph({text:'Key metrics', heading:HeadingLevel.HEADING_1, spacing:{before:200, after:150}}),
+          kpiTable,
+          new Paragraph({text:'', spacing:{after:300}}),
+          new Paragraph({text:'Daily summary', heading:HeadingLevel.HEADING_1, spacing:{before:200, after:150}}),
+          dailyTable,
+          new Paragraph({text:'', spacing:{after:300}}),
+          new Paragraph({text:'All feed entries', heading:HeadingLevel.HEADING_1, spacing:{before:200, after:150}}),
+          entryTable
+        ]
+      }]
+    });
+
+    return Packer.toBlob(doc).then(function(blob){
+      return saveFile('Feed-Log-Report.docx', blob);
+    });
+  }
+
+  /* ============ INIT ============ */
+  resetEntryForm();
+})();
+</script>
+</body>
+</html>
