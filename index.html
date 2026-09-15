@@ -512,10 +512,16 @@
   document.getElementById('btn-push-sheet').addEventListener('click', function(){
     var url = getSheetUrl();
     if(!url){ showToast('Paste your Apps Script Web App URL first.'); return; }
-    setSheetStatus('Sending '+entries.length+' entries\u2026', true);
-    postToSheet('bulk', {entries: entries}).then(function(){
-      setSheetStatus('Sent '+entries.length+' entries to your Sheet.', true);
-      showToast('Sent all entries to your Sheet.');
+    setSheetStatus('Checking '+entries.length+' entries against your Sheet\u2026', true);
+    postToSheet('bulk', {entries: entries}).then(function(res){
+      var added = (res && typeof res.added === 'number') ? res.added : null;
+      var msg = added === null
+        ? ('Sent '+entries.length+' entries to your Sheet.')
+        : (added === 0
+            ? 'Already up to date \u2014 no new rows added.'
+            : added+' new row'+(added===1?'':'s')+' added to your Sheet (rest already there, skipped).');
+      setSheetStatus(msg, true);
+      showToast(msg);
     }).catch(function(){
       setSheetStatus("Couldn't reach the Sheet. Check the URL and access settings.", false);
       showToast("Couldn't reach the Sheet.");
