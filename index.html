@@ -490,8 +490,82 @@
     if(changed) persist();
   }
 
+  var DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+  var TIME_RE = /^\d{2}:\d{2}$/;
+  function isValidEntryShape(date, time){
+    return DATE_RE.test(date) && TIME_RE.test(time);
+  }
+
+  // Matches JS's native Date.toString() output, e.g.
+  // "Fri Aug 14 2026 00:00:00 GMT+0530 (India Standard Time)".
+  var JS_DATE_TOSTRING_RE = /^\w{3}\s+(\w{3})\s+(\d{1,2})\s+(\d{4})\s+(\d{2}):(\d{2}):(\d{2})/;
+  var MONTH_NUM = {Jan:'01',Feb:'02',Mar:'03',Apr:'04',May:'05',Jun:'06',Jul:'07',Aug:'08',Sep:'09',Oct:'10',Nov:'11',Dec:'12'};
+
+  /**
+   * If a value was corrupted into a Date object's verbose text form, this
+   * reads the wall-clock date/time straight off that text via regex,
+   * instead of re-parsing through `new Date()` and its getters - which
+   * would silently re-introduce timezone drift (e.g. recovering the wrong
+   * calendar day). Falls back to a generic `new Date()` parse only if the
+   * text isn't in that exact shape.
+   */
+  function repairFromDateText_(str){
+    var m = JS_DATE_TOSTRING_RE.exec(str);
+    if(m){
+      var mon = MONTH_NUM[m[1]];
+      if(mon) return { date: m[3]+'-'+mon+'-'+pad2(parseInt(m[2],10)), time: m[4]+':'+m[5] };
+    }
+    var d = new Date(str);
+    if(!isNaN(d.getTime())){
+      return { date: d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate()), time: pad2(d.getHours())+':'+pad2(d.getMinutes()) };
+    }
+    return null;
+  }
+
+  /**
+   * Repairs or discards entries whose date/time aren't in the plain
+   * "yyyy-mm-dd" / "HH:mm" shape the app expects. This can happen if a
+   * real Date object ever got turned into its verbose text form (e.g.
+   * "Fri Aug 14 2026 00:00:00 GMT+0530 (India Standard Time)") instead of
+   * staying as plain text - usually from an old bug or a stray sync.
+   * The date and time fields are repaired independently (the corrupted
+   * date field's own date portion is used; the corrupted time field's own
+   * time portion is used), since that's the part of each that's still
+   * meaningful. If a field can't be parsed at all, the whole entry is
+   * dropped rather than left corrupted (and liable to be re-sent to the
+   * Sheet).
+   */
+  function sanitizeEntries(){
+    var changed = false;
+    var cleaned = [];
+    entries.forEach(function(e){
+      if(isValidEntryShape(e.date, e.time)){
+        cleaned.push(e);
+        return;
+      }
+      changed = true;
+      if(!DATE_RE.test(e.date)){
+        var rd = repairFromDateText_(e.date);
+        if(rd) e.date = rd.date;
+      }
+      if(!TIME_RE.test(e.time)){
+        var rt = repairFromDateText_(e.time);
+        if(rt) e.time = rt.time;
+      }
+      if(isValidEntryShape(e.date, e.time)){
+        e.ampm = parseInt(e.time.split(':')[0],10) >= 12 ? 'PM' : 'AM';
+        cleaned.push(e);
+      }
+      // else: unrecoverable, dropped
+    });
+    entries = cleaned;
+    if(changed) persist();
+    return changed;
+  }
+
   entries = loadEntries();
   ensureIds();
+  sanitizeEntries();
 
   /* ============ GOOGLE SHEET SYNC ============ */
   var SHEET_URL_KEY = 'feedlog_sheet_url';
@@ -516,6 +590,7 @@
         ml: Number(inc.ml),
         id: inc.id ? String(inc.id) : null
       };
+      if(!isValidEntryShape(norm.date, norm.time) || !norm.ml || isNaN(norm.ml)) return;
 
       if(norm.id && byId[norm.id]){
         var existing = byId[norm.id];
@@ -603,14 +678,18 @@
   document.getElementById('btn-push-sheet').addEventListener('click', function(){
     var url = getSheetUrl();
     if(!url){ showToast('Paste your Apps Script Web App URL first.'); return; }
+    sanitizeEntries();
+    renderRecentEntries();
     setSheetStatus('Checking '+entries.length+' entries against your Sheet\u2026', true);
     postToSheet('bulk', {entries: entries}).then(function(res){
       var added = (res && typeof res.added === 'number') ? res.added : null;
+      var rejected = (res && typeof res.rejected === 'number') ? res.rejected : 0;
       var msg = added === null
         ? ('Sent '+entries.length+' entries to your Sheet.')
         : (added === 0
             ? 'Already up to date \u2014 no new rows added.'
             : added+' new row'+(added===1?'':'s')+' added to your Sheet (rest already there, skipped).');
+      if(rejected) msg += ' ('+rejected+' entr'+(rejected===1?'y':'ies')+' had bad data and '+(rejected===1?'was':'were')+' skipped.)';
       setSheetStatus(msg, true);
       showToast(msg);
     }).catch(function(){
