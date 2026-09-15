@@ -198,6 +198,11 @@
   .overflow-scroll{overflow-x:auto;}
 
   .sheet-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;}
+  .weekly-range-label{font-size:0.78rem;color:var(--ink-soft);font-weight:600;}
+  .slider-row{display:flex;align-items:center;gap:10px;margin-top:14px;}
+  .slider-row input[type="range"]{flex:1;accent-color:var(--purple);}
+  .slider-end{font-size:0.72rem;color:var(--ink-soft);font-weight:700;}
+  .dn-period-label{font-size:0.85rem;color:var(--ink-soft);font-weight:600;margin-bottom:12px;}
   .sheet-row input{
     flex:1;min-width:220px;padding:10px 12px;border-radius:12px;border:1.5px solid var(--line);
     background:var(--bg-alt);color:var(--ink);font-family:inherit;font-size:0.88rem;
@@ -354,8 +359,8 @@
       <div class="panel-head">
         <h3>Daily totals</h3>
         <div class="toggle-row" id="range-toggle">
-          <button data-range="30">Last 30 days</button>
-          <button data-range="all" class="sel">All time</button>
+          <button data-range="7" class="sel">Last 7 days</button>
+          <button data-range="15">Last 15 days</button>
         </div>
       </div>
       <div class="chart-wrap"><canvas id="chart-main"></canvas></div>
@@ -367,18 +372,33 @@
     </div>
 
     <div class="panel">
-      <div class="panel-head"><h3>Weekly average (ml/day)</h3></div>
+      <div class="panel-head">
+        <h3>Weekly average (ml/day)</h3>
+        <div id="weekly-range-label" class="weekly-range-label"></div>
+      </div>
       <div class="chart-wrap small overflow-scroll"><canvas id="chart-weekly"></canvas></div>
+      <div class="slider-row" id="weekly-slider-row">
+        <span class="slider-end">Older</span>
+        <input type="range" id="weekly-slider" min="0" max="0" value="0" step="1">
+        <span class="slider-end">Newer</span>
+      </div>
     </div>
 
     <div class="panel">
       <div class="panel-head">
         <h3>Day vs night</h3>
-        <div class="day-picker">
-          <label for="day-select" style="font-size:0.8rem;color:var(--ink-soft);font-weight:600;">Choose a day:</label>
-          <input type="date" id="day-select">
-        </div>
       </div>
+      <div class="toggle-row" id="daynight-toggle" style="margin-bottom:14px;">
+        <button data-dn="today" class="sel">Today</button>
+        <button data-dn="yesterday">Yesterday</button>
+        <button data-dn="7">Last 7 days</button>
+        <button data-dn="15">Last 15 days</button>
+      </div>
+      <div class="day-picker" style="margin-bottom:14px;">
+        <label for="day-select" style="font-size:0.8rem;color:var(--ink-soft);font-weight:600;">or pick a specific day:</label>
+        <input type="date" id="day-select">
+      </div>
+      <div id="dn-period-label" class="dn-period-label"></div>
       <div class="day-grid">
         <div>
           <div class="chart-wrap small"><canvas id="chart-pie"></canvas></div>
@@ -536,6 +556,12 @@
     return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate());
   }
 
+  function yesterdayStr(){
+    var d = new Date();
+    d.setDate(d.getDate()-1);
+    return d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate());
+  }
+
   function to24(hour12, minute, ampm){
     var h = parseInt(hour12,10) % 12;
     if(ampm === 'PM') h += 12;
@@ -662,6 +688,28 @@
     return {day:day, night:night};
   }
 
+  function periodDayNightAvg(dates){
+    var dateSet = {};
+    dates.forEach(function(d){ dateSet[d] = true; });
+    var perDay = {};
+    entries.forEach(function(e){
+      if(!dateSet[e.date]) return;
+      if(!perDay[e.date]) perDay[e.date] = {day:0, night:0};
+      var h = parseInt(e.time.split(':')[0],10);
+      if(h>=6 && h<18) perDay[e.date].day += e.ml; else perDay[e.date].night += e.ml;
+    });
+    var withData = Object.keys(perDay);
+    var sumDay = 0, sumNight = 0;
+    withData.forEach(function(d){ sumDay += perDay[d].day; sumNight += perDay[d].night; });
+    var n = withData.length;
+    return {
+      avgDay: n ? Math.round(sumDay/n) : 0,
+      avgNight: n ? Math.round(sumNight/n) : 0,
+      daysWithData: n,
+      totalDays: dates.length
+    };
+  }
+
   function weeklyBuckets(){
     var dt = dailyTotals();
     var dates = Object.keys(dt).sort();
@@ -681,8 +729,10 @@
       var b = buckets[k];
       var start = new Date(k+'T00:00:00');
       var end = new Date(start); end.setDate(start.getDate()+6);
+      var sameMonth = start.getMonth() === end.getMonth();
+      var endLabel = end.toLocaleDateString('en-US', sameMonth ? {day:'numeric'} : {month:'short',day:'numeric'});
       return {
-        label: start.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + '\u2013' + end.toLocaleDateString('en-US',{day:'numeric'}),
+        label: start.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + '\u2013' + endLabel,
         avg: Math.round(b.sum / b.count)
       };
     });
@@ -789,7 +839,7 @@
 
   /* ============ CHARTS ============ */
   var charts = {};
-  var chartRange = 'all';
+  var chartRange = '7';
 
   function destroyChart(key){
     if(charts[key]){ charts[key].destroy(); charts[key] = null; }
@@ -839,15 +889,8 @@
     var dt = dailyTotals();
     var allDates = Object.keys(dt).sort();
     if(!allDates.length){ return; }
-    var today = todayStr();
-    var lastData = allDates[allDates.length-1];
-    var maxDate = lastData > today ? lastData : today;
-    var dates;
-    if(chartRange === '30'){
-      dates = lastNDates(30).slice().sort();
-    } else {
-      dates = dateRangeArray(allDates[0], maxDate);
-    }
+    var n = parseInt(chartRange, 10) || 7;
+    var dates = lastNDates(n).slice().sort();
     var values = dates.map(function(d){ return dt[d] ? dt[d].total : null; });
     var nonNull = values.filter(function(v){ return v !== null; });
     var avg = nonNull.length ? Math.round(nonNull.reduce(function(a,b){ return a+b; },0)/nonNull.length) : 0;
@@ -870,11 +913,11 @@
             fill: true,
             tension: 0.3,
             spanGaps: false,
-            pointRadius: dates.length > 45 ? 0 : 3.5,
+            pointRadius: 4,
             pointBackgroundColor: pink,
             pointBorderColor: '#fff',
             pointBorderWidth: 1.2,
-            showDataLabels: dates.length <= 20,
+            showDataLabels: true,
             labelColor: purpleDeep
           },
           {
@@ -909,7 +952,7 @@
           y: { ticks: { color: ink, font:{size:10} }, grid: { color: line }, title: { display:true, text:'ml', color: ink } }
         }
       },
-      plugins: [dataLabelPlugin, avgAnnotationPlugin('Avg: '+avg+' ml/day', purpleDeep)]
+      plugins: [dataLabelPlugin, avgAnnotationPlugin('Avg: '+avg+' ml/day ('+n+'d)', purpleDeep)]
     });
   }
 
@@ -917,10 +960,8 @@
     var dt = dailyTotals();
     var allDates = Object.keys(dt).sort();
     if(!allDates.length) return;
-    var today = todayStr();
-    var lastData = allDates[allDates.length-1];
-    var maxDate = lastData > today ? lastData : today;
-    var dates = chartRange === '30' ? lastNDates(30).slice().sort() : dateRangeArray(allDates[0], maxDate);
+    var n = parseInt(chartRange, 10) || 7;
+    var dates = lastNDates(n).slice().sort();
     var counts = dates.map(function(d){ return dt[d] ? dt[d].count : null; });
 
     var pink = cssVar('--pink'), purple = cssVar('--purple'), ink = cssVar('--ink-soft'), line = cssVar('--line');
@@ -930,7 +971,7 @@
       type: 'bar',
       data: {
         labels: dates.map(fmtShort),
-        datasets: [{ label:'Feeds', data: counts, backgroundColor: hexToRgba(pink,0.75), borderRadius:4, maxBarThickness: 22 }]
+        datasets: [{ label:'Feeds', data: counts, backgroundColor: hexToRgba(pink,0.75), borderRadius:4, maxBarThickness: 32 }]
       },
       options: {
         responsive:true, maintainAspectRatio:false,
@@ -943,18 +984,45 @@
     });
   }
 
+  var WEEKLY_WINDOW = 4;
+  var weeklyOffset = null; // start index into buckets array; null = not yet initialized
+
   function renderWeeklyChart(){
     var buckets = weeklyBuckets();
+    var slider = document.getElementById('weekly-slider');
+    var sliderRow = document.getElementById('weekly-slider-row');
+    var label = document.getElementById('weekly-range-label');
+
+    if(!buckets.length){
+      sliderRow.style.display = 'none';
+      label.textContent = '';
+      destroyChart('weekly');
+      return;
+    }
+
+    var maxStart = Math.max(0, buckets.length - WEEKLY_WINDOW);
+    if(weeklyOffset === null) weeklyOffset = maxStart; // default: most recent window
+    weeklyOffset = Math.min(Math.max(weeklyOffset, 0), maxStart);
+
+    slider.min = 0;
+    slider.max = maxStart;
+    slider.value = weeklyOffset;
+    sliderRow.style.display = maxStart > 0 ? 'flex' : 'none';
+
+    var windowBuckets = buckets.slice(weeklyOffset, weeklyOffset + WEEKLY_WINDOW);
+    if(windowBuckets.length){
+      label.textContent = windowBuckets[0].label + ' \u2013 ' + windowBuckets[windowBuckets.length-1].label;
+    }
+
     var purple = cssVar('--purple'), ink = cssVar('--ink-soft'), line = cssVar('--line');
     destroyChart('weekly');
     var ctx = document.getElementById('chart-weekly').getContext('2d');
-    var minWidth = Math.max(buckets.length * 70, 300);
-    document.getElementById('chart-weekly').parentElement.style.minWidth = minWidth+'px';
+    document.getElementById('chart-weekly').parentElement.style.minWidth = '';
     charts.weekly = new Chart(ctx, {
       type:'bar',
       data:{
-        labels: buckets.map(function(b){ return b.label; }),
-        datasets:[{ label:'Avg ml/day', data: buckets.map(function(b){ return b.avg; }), backgroundColor: hexToRgba(purple,0.8), borderRadius:6, maxBarThickness:38 }]
+        labels: windowBuckets.map(function(b){ return b.label; }),
+        datasets:[{ label:'Avg ml/day', data: windowBuckets.map(function(b){ return b.avg; }), backgroundColor: hexToRgba(purple,0.8), borderRadius:6, maxBarThickness:60, showDataLabels:true, labelColor: cssVar('--purple-deep') }]
       },
       options:{
         responsive:true, maintainAspectRatio:false,
@@ -969,34 +1037,87 @@
       },
       plugins:[dataLabelPlugin]
     });
-    charts.weekly.data.datasets[0].showDataLabels = true;
-    charts.weekly.data.datasets[0].labelColor = cssVar('--purple-deep');
-    charts.weekly.update();
   }
 
+  document.getElementById('weekly-slider').addEventListener('input', function(ev){
+    weeklyOffset = parseInt(ev.target.value, 10);
+    safeRender(renderWeeklyChart, 'chart-weekly');
+  });
+
+
+  var dayNightMode = 'today'; // 'today' | 'yesterday' | '7' | '15' | 'custom'
+
   function renderPieAndTimeline(){
-    var dateInput = document.getElementById('day-select');
-    var date = dateInput.value;
-    var split = dayNightSplit(date);
     var purple = cssVar('--purple'), pink = cssVar('--pink');
+    var periodLabel = document.getElementById('dn-period-label');
+    var tl = document.getElementById('day-timeline');
+    var isSingleDay = (dayNightMode === 'today' || dayNightMode === 'yesterday' || dayNightMode === 'custom');
+
+    var day, night, labelText;
+
+    if(isSingleDay){
+      var date;
+      if(dayNightMode === 'today') date = todayStr();
+      else if(dayNightMode === 'yesterday') date = yesterdayStr();
+      else date = document.getElementById('day-select').value || todayStr();
+
+      var split = dayNightSplit(date);
+      day = split.day; night = split.night;
+      labelText = fmtLong(date) + (date === todayStr() ? ' (today)' : (date === yesterdayStr() ? ' (yesterday)' : ''));
+
+      var todays = entries.filter(function(e){ return e.date===date; })
+        .slice().sort(function(a,b){ return a.time.localeCompare(b.time); });
+      if(!todays.length){
+        tl.innerHTML = '<div class="empty-note">No feeds recorded for this day.</div>';
+      } else {
+        var maxMl = Math.max.apply(null, todays.map(function(e){ return e.ml; }));
+        tl.innerHTML = todays.map(function(e){
+          var w = Math.max(6, Math.round(e.ml/maxMl*100));
+          return '<div class="tl-row"><span class="tl-time">'+fmt12(e.time)+'</span>'+
+            '<div class="tl-bar-wrap"><div class="tl-bar" style="width:'+w+'%"></div></div>'+
+            '<span class="tl-ml">'+e.ml+' ml</span></div>';
+        }).join('');
+      }
+    } else {
+      var n = parseInt(dayNightMode, 10);
+      var dates = lastNDates(n);
+      var avgSplit = periodDayNightAvg(dates);
+      day = avgSplit.avgDay; night = avgSplit.avgNight;
+      labelText = 'Average per day over the last '+n+' days ('+avgSplit.daysWithData+' of '+n+' days have entries)';
+
+      if(!avgSplit.daysWithData){
+        tl.innerHTML = '<div class="empty-note">No feeds recorded in this period.</div>';
+      } else {
+        tl.innerHTML =
+          '<div class="tl-row"><span class="tl-time">Day avg</span>'+
+          '<div class="tl-bar-wrap"><div class="tl-bar" style="width:'+(day+night? Math.round(day/(day+night)*100):0)+'%"></div></div>'+
+          '<span class="tl-ml">'+day+' ml</span></div>'+
+          '<div class="tl-row"><span class="tl-time">Night avg</span>'+
+          '<div class="tl-bar-wrap"><div class="tl-bar" style="width:'+(day+night? Math.round(night/(day+night)*100):0)+'%"></div></div>'+
+          '<span class="tl-ml">'+night+' ml</span></div>'+
+          '<div class="empty-note" style="padding:14px 4px 0;text-align:left;">Based on '+avgSplit.daysWithData+' day'+(avgSplit.daysWithData===1?'':'s')+' with logged feeds in this window.</div>';
+      }
+    }
+
+    periodLabel.textContent = labelText;
 
     destroyChart('pie');
     var ctx = document.getElementById('chart-pie').getContext('2d');
-    if(split.day===0 && split.night===0){
+    if(day===0 && night===0){
       charts.pie = null;
     } else {
       charts.pie = new Chart(ctx, {
         type:'pie',
         data:{
           labels:['Day (6am\u20136pm)','Night (6pm\u20136am)'],
-          datasets:[{ data:[split.day, split.night], backgroundColor:[purple, pink], borderColor: cssVar('--card'), borderWidth:2 }]
+          datasets:[{ data:[day, night], backgroundColor:[purple, pink], borderColor: cssVar('--card'), borderWidth:2 }]
         },
         options:{
           responsive:true, maintainAspectRatio:false,
           plugins:{
             legend:{display:false},
             tooltip:{ callbacks:{ label:function(item){
-              var total = split.day+split.night;
+              var total = day+night;
               var pct = total? Math.round(item.parsed/total*100) : 0;
               return item.label+': '+item.parsed+' ml ('+pct+'%)';
             } } }
@@ -1004,21 +1125,6 @@
         }
       });
     }
-
-    var todays = entries.filter(function(e){ return e.date===date; })
-      .slice().sort(function(a,b){ return a.time.localeCompare(b.time); });
-    var tl = document.getElementById('day-timeline');
-    if(!todays.length){
-      tl.innerHTML = '<div class="empty-note">No feeds recorded for this day.</div>';
-      return;
-    }
-    var maxMl = Math.max.apply(null, todays.map(function(e){ return e.ml; }));
-    tl.innerHTML = todays.map(function(e){
-      var w = Math.max(6, Math.round(e.ml/maxMl*100));
-      return '<div class="tl-row"><span class="tl-time">'+fmt12(e.time)+'</span>'+
-        '<div class="tl-bar-wrap"><div class="tl-bar" style="width:'+w+'%"></div></div>'+
-        '<span class="tl-ml">'+e.ml+' ml</span></div>';
-    }).join('');
   }
 
   function hexToRgba(hex, alpha){
@@ -1086,6 +1192,16 @@
   }
 
   document.getElementById('day-select').addEventListener('change', function(){
+    dayNightMode = 'custom';
+    document.querySelectorAll('#daynight-toggle button').forEach(function(b){ b.classList.remove('sel'); });
+    safeRender(renderPieAndTimeline, 'chart-pie');
+  });
+
+  document.getElementById('daynight-toggle').addEventListener('click', function(ev){
+    var btn = ev.target.closest('button[data-dn]');
+    if(!btn) return;
+    dayNightMode = btn.getAttribute('data-dn');
+    document.querySelectorAll('#daynight-toggle button').forEach(function(b){ b.classList.toggle('sel', b===btn); });
     safeRender(renderPieAndTimeline, 'chart-pie');
   });
 
