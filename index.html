@@ -157,6 +157,25 @@
   .today-row{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--line);font-size:0.9rem;}
   .today-row:last-child{border-bottom:none;}
   .today-row .amt{font-weight:700;color:var(--pink-deep);}
+
+  .recent-row{display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid var(--line);gap:10px;}
+  .recent-row:last-child{border-bottom:none;}
+  .recent-info{display:flex;flex-direction:column;gap:2px;}
+  .recent-date{font-size:0.78rem;color:var(--ink-soft);font-weight:600;}
+  .recent-amt{font-size:0.95rem;font-weight:700;color:var(--pink-deep);}
+  .recent-actions{display:flex;gap:6px;flex-shrink:0;}
+  .icon-btn{width:34px;height:34px;border-radius:10px;border:1.5px solid var(--line);background:var(--bg-alt);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--ink-soft);flex-shrink:0;}
+  .icon-btn svg{width:15px;height:15px;}
+  .icon-btn:hover{border-color:var(--purple);color:var(--purple);}
+  .icon-btn.danger:hover{border-color:#DC2626;color:#DC2626;}
+  .icon-btn.primary{border-color:var(--purple);color:var(--purple);}
+  .recent-edit-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:11px 0;border-bottom:1px solid var(--line);}
+  .recent-edit-row:last-child{border-bottom:none;}
+  .recent-edit-row input{padding:8px 10px;border-radius:10px;border:1.5px solid var(--line);background:var(--bg-alt);color:var(--ink);font-family:inherit;font-size:0.85rem;}
+  .recent-edit-row input[type="date"]{flex:1 1 132px;min-width:0;}
+  .recent-edit-row input[type="time"]{flex:0 1 100px;min-width:0;}
+  .recent-edit-row input[type="number"]{flex:0 1 80px;min-width:0;}
+  .recent-edit-actions{display:flex;gap:6px;margin-left:auto;}
   .goto-dash{display:inline-block;margin-top:14px;font-size:0.87rem;color:var(--purple);font-weight:700;cursor:pointer;background:none;border:none;padding:0;}
 
   /* ---------- Dashboard ---------- */
@@ -271,6 +290,11 @@
       </button>
     </div>
     <p class="home-foot">Data lives only in this browser. Nothing is sent anywhere.</p>
+
+    <div class="panel" id="recent-panel" style="margin-top:22px;">
+      <div class="panel-head"><h3>Recent entries</h3></div>
+      <div id="recent-list"></div>
+    </div>
   </div>
 
   <!-- ENTRY -->
@@ -326,6 +350,10 @@
     <div class="dash-head">
       <h2>Dashboard</h2>
       <div class="export-row">
+        <button class="export-btn" id="btn-refresh-dashboard">
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 4v5h5M20 20v-5h-5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.5 15a7 7 0 0012.6 2.5M18.5 9A7 7 0 005.9 6.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+          Refresh
+        </button>
         <button class="export-btn word" id="btn-export-word">
           <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 4h16v16H4z" stroke="currentColor" stroke-width="1.6"/><path d="M7 9h10M7 13h10M7 17h6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
           Word Report
@@ -450,7 +478,20 @@
     catch(e){ showToast("Couldn't save to this browser's storage."); }
   }
 
+  function genId(){
+    return 'e' + Date.now().toString(36) + Math.random().toString(36).slice(2,8);
+  }
+
+  function ensureIds(){
+    var changed = false;
+    entries.forEach(function(e){
+      if(!e.id){ e.id = genId(); changed = true; }
+    });
+    if(changed) persist();
+  }
+
   entries = loadEntries();
+  ensureIds();
 
   /* ============ GOOGLE SHEET SYNC ============ */
   var SHEET_URL_KEY = 'feedlog_sheet_url';
@@ -463,22 +504,45 @@
   function entryKey(e){ return e.date+'|'+e.time+'|'+e.ml; }
 
   function mergeEntries(list){
-    var seen = {};
-    entries.forEach(function(e){ seen[entryKey(e)] = true; });
-    var added = 0;
-    (list||[]).forEach(function(e){
-      if(!e || !e.date || !e.time || !e.ml) return;
-      var k = entryKey(e);
-      if(!seen[k]){
-        entries.push({date:e.date, time:e.time, ampm:e.ampm||(parseInt(e.time,10)>=12?'PM':'AM'), ml:Number(e.ml)});
-        seen[k] = true; added++;
+    var byId = {}, byKey = {};
+    entries.forEach(function(e){ if(e.id) byId[e.id] = e; byKey[entryKey(e)] = e; });
+    var added = 0, updated = 0;
+
+    (list||[]).forEach(function(inc){
+      if(!inc || !inc.date || !inc.time || !inc.ml) return;
+      var norm = {
+        date: String(inc.date), time: String(inc.time),
+        ampm: inc.ampm || (parseInt(inc.time,10) >= 12 ? 'PM' : 'AM'),
+        ml: Number(inc.ml),
+        id: inc.id ? String(inc.id) : null
+      };
+
+      if(norm.id && byId[norm.id]){
+        var existing = byId[norm.id];
+        if(existing.date!==norm.date || existing.time!==norm.time || existing.ml!==norm.ml || existing.ampm!==norm.ampm){
+          existing.date = norm.date; existing.time = norm.time; existing.ampm = norm.ampm; existing.ml = norm.ml;
+          updated++;
+        }
+        return;
       }
+
+      var k = entryKey(norm);
+      if(byKey[k]){
+        if(norm.id && !byKey[k].id){ byKey[k].id = norm.id; byId[norm.id] = byKey[k]; }
+        return;
+      }
+
+      if(!norm.id) norm.id = genId();
+      entries.push(norm);
+      byId[norm.id] = norm; byKey[k] = norm;
+      added++;
     });
-    if(added){
+
+    if(added || updated){
       entries.sort(function(a,b){ return (a.date+'T'+a.time).localeCompare(b.date+'T'+b.time); });
       persist();
     }
-    return added;
+    return {added:added, updated:updated};
   }
 
   function postToSheet(action, payload){
@@ -497,20 +561,26 @@
 
   function pullFromSheet(showFeedback){
     var url = getSheetUrl();
-    if(!url){ if(showFeedback) showToast('Paste your Apps Script Web App URL first.'); return Promise.resolve(0); }
+    if(!url){ if(showFeedback) showToast('Paste your Apps Script Web App URL first.'); return Promise.resolve({added:0,updated:0}); }
     return fetch(url, {method:'GET'})
       .then(function(res){ return res.json(); })
       .then(function(data){
-        var added = mergeEntries(data && data.entries);
+        var result = mergeEntries(data && data.entries);
         if(document.getElementById('view-dashboard').classList.contains('active')) renderDashboard();
+        renderRecentEntries();
         setSheetStatus('Connected \u2014 last pulled just now.', true);
-        if(showFeedback) showToast(added ? (added+' new entr'+(added===1?'y':'ies')+' pulled from your Sheet.') : "You're already up to date with the Sheet.");
-        return added;
+        if(showFeedback){
+          var parts = [];
+          if(result.added) parts.push(result.added+' new');
+          if(result.updated) parts.push(result.updated+' updated');
+          showToast(parts.length ? (parts.join(', ')+' from your Sheet.') : "You're already up to date with the Sheet.");
+        }
+        return result;
       })
       .catch(function(err){
         setSheetStatus("Couldn't reach the Sheet. Check the URL and that it's deployed with access set to \u201cAnyone.\u201d", false);
         if(showFeedback) showToast("Couldn't reach the Sheet.");
-        return 0;
+        return {added:0,updated:0};
       });
   }
 
@@ -529,6 +599,7 @@
     pullFromSheet(true);
   });
   document.getElementById('btn-pull-sheet').addEventListener('click', function(){ pullFromSheet(true); });
+  document.getElementById('btn-refresh-dashboard').addEventListener('click', function(){ pullFromSheet(true); });
   document.getElementById('btn-push-sheet').addEventListener('click', function(){
     var url = getSheetUrl();
     if(!url){ showToast('Paste your Apps Script Web App URL first.'); return; }
@@ -618,6 +689,127 @@
     clearTimeout(showToast._tm);
     showToast._tm = setTimeout(function(){ t.classList.remove('show'); }, 3200);
   }
+
+  /* ============ RECENT ENTRIES (edit / delete) ============ */
+  var ICON_PENCIL = '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 20l1-4.5L15.5 5l3.5 3.5L8.5 19 4 20z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>';
+  var ICON_TRASH = '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 7h14M9 7V5a1 1 0 011-1h4a1 1 0 011 1v2m-9 0 1 13a1 1 0 001 1h8a1 1 0 001-1l1-13" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  var ICON_CHECK = '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 12l5 5L20 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  var ICON_CLOSE = '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
+
+  function getRecentEntries(){
+    return entries.slice()
+      .sort(function(a,b){ return (b.date+'T'+b.time).localeCompare(a.date+'T'+a.time); })
+      .slice(0, 10);
+  }
+
+  function renderRecentEntries(){
+    var wrap = document.getElementById('recent-list');
+    if(!wrap) return;
+    var recent = getRecentEntries();
+    if(!recent.length){
+      wrap.innerHTML = '<div class="empty-note">No entries yet.</div>';
+      return;
+    }
+    wrap.innerHTML = recent.map(function(e){
+      return '<div class="recent-row" data-id="'+e.id+'">'+
+        '<div class="recent-info"><span class="recent-date">'+fmtLong(e.date)+' \u00b7 '+fmt12(e.time)+'</span><span class="recent-amt">'+e.ml+' ml</span></div>'+
+        '<div class="recent-actions">'+
+          '<button type="button" class="icon-btn" data-action="edit" data-id="'+e.id+'" aria-label="Edit entry">'+ICON_PENCIL+'</button>'+
+          '<button type="button" class="icon-btn danger" data-action="delete" data-id="'+e.id+'" aria-label="Delete entry">'+ICON_TRASH+'</button>'+
+        '</div>'+
+      '</div>';
+    }).join('');
+  }
+
+  function findEntryById(id){
+    for(var i=0;i<entries.length;i++){ if(entries[i].id===id) return entries[i]; }
+    return null;
+  }
+
+  function showEditRow(entry){
+    var row = document.querySelector('.recent-row[data-id="'+entry.id+'"]');
+    if(!row) return;
+    var wrapper = document.createElement('div');
+    wrapper.innerHTML =
+      '<div class="recent-edit-row" data-id="'+entry.id+'">'+
+        '<input type="date" class="er-date" value="'+entry.date+'">'+
+        '<input type="time" class="er-time" value="'+entry.time+'">'+
+        '<input type="number" class="er-ml" min="1" max="1000" value="'+entry.ml+'">'+
+        '<div class="recent-edit-actions">'+
+          '<button type="button" class="icon-btn primary" data-action="save-edit" data-id="'+entry.id+'" aria-label="Save">'+ICON_CHECK+'</button>'+
+          '<button type="button" class="icon-btn" data-action="cancel-edit" data-id="'+entry.id+'" aria-label="Cancel">'+ICON_CLOSE+'</button>'+
+        '</div>'+
+      '</div>';
+    row.replaceWith(wrapper.firstElementChild);
+  }
+
+  function saveEditRow(entry){
+    var row = document.querySelector('.recent-edit-row[data-id="'+entry.id+'"]');
+    if(!row) return;
+    var newDate = row.querySelector('.er-date').value;
+    var newTime = row.querySelector('.er-time').value;
+    var newMl = parseInt(row.querySelector('.er-ml').value, 10);
+    if(!newDate || !newTime || !newMl || newMl<1 || newMl>1000){
+      showToast('Please enter a valid date, time and amount.');
+      return;
+    }
+    var newAmpm = parseInt(newTime.split(':')[0],10) >= 12 ? 'PM' : 'AM';
+    var oldSnapshot = {date:entry.date, time:entry.time, ml:entry.ml};
+
+    entry.date = newDate; entry.time = newTime; entry.ampm = newAmpm; entry.ml = newMl;
+    entries.sort(function(a,b){ return (a.date+'T'+a.time).localeCompare(b.date+'T'+b.time); });
+    persist();
+    renderRecentEntries();
+    renderTodayList();
+    if(document.getElementById('view-dashboard').classList.contains('active')) renderDashboard();
+
+    if(getSheetUrl()){
+      postToSheet('update', {id: entry.id, entry:{date:entry.date, time:entry.time, ampm:entry.ampm, ml:entry.ml}, oldEntry: oldSnapshot})
+        .then(function(res){
+          if(res && res.updated === false) showToast('Updated here, but no matching row was found in the Sheet yet \u2014 try "Send all entries to Sheet" once.');
+          else showToast('Entry updated and synced to Sheet.');
+        })
+        .catch(function(){ showToast('Updated here; Sheet sync failed.'); });
+    } else {
+      showToast('Entry updated.');
+    }
+  }
+
+  function handleDeleteEntry(entry){
+    var ok = true;
+    try{ ok = window.confirm('Delete this entry ('+fmtLong(entry.date)+' at '+fmt12(entry.time)+', '+entry.ml+' ml)? This can\'t be undone.'); }catch(e){}
+    if(!ok) return;
+
+    entries = entries.filter(function(e){ return e.id !== entry.id; });
+    persist();
+    renderRecentEntries();
+    renderTodayList();
+    if(document.getElementById('view-dashboard').classList.contains('active')) renderDashboard();
+
+    if(getSheetUrl()){
+      postToSheet('delete', {id: entry.id, entry:{date:entry.date, time:entry.time, ml:entry.ml}})
+        .then(function(res){
+          if(res && res.deleted === false) showToast('Deleted here, but no matching row was found in the Sheet.');
+          else showToast('Deleted and synced to Sheet.');
+        })
+        .catch(function(){ showToast('Deleted here; Sheet sync failed.'); });
+    } else {
+      showToast('Entry deleted.');
+    }
+  }
+
+  document.getElementById('recent-list').addEventListener('click', function(ev){
+    var btn = ev.target.closest('button[data-action]');
+    if(!btn) return;
+    var id = btn.getAttribute('data-id');
+    var action = btn.getAttribute('data-action');
+    if(action === 'cancel-edit'){ renderRecentEntries(); return; }
+    var entry = findEntryById(id);
+    if(!entry) return;
+    if(action === 'edit') showEditRow(entry);
+    else if(action === 'delete') handleDeleteEntry(entry);
+    else if(action === 'save-edit') saveEditRow(entry);
+  });
 
   /* ============ AGGREGATION ============ */
   function dailyTotals(){
@@ -758,6 +950,7 @@
       var target = btn.getAttribute('data-go');
       showView(target);
       if(target === 'dashboard') requestAnimationFrame(renderDashboard);
+      if(target === 'home') renderRecentEntries();
     });
   });
 
@@ -813,10 +1006,11 @@
     if(ml<1 || ml>1000){ showToast('Capacity should be a realistic ml value.'); return; }
 
     var time24 = to24(hour, min, selectedAmpm);
-    var newEntry = {date:date, time:time24, ampm:selectedAmpm, ml:ml};
+    var newEntry = {id: genId(), date:date, time:time24, ampm:selectedAmpm, ml:ml};
     entries.push(newEntry);
     entries.sort(function(a,b){ return (a.date+'T'+a.time).localeCompare(b.date+'T'+b.time); });
     persist();
+    renderRecentEntries();
 
     var box = document.getElementById('success-box');
     box.textContent = 'Saved: '+fmtLong(date)+' at '+fmt12(time24)+' \u2014 '+ml+' ml';
@@ -1394,6 +1588,7 @@
 
   /* ============ INIT ============ */
   resetEntryForm();
+  renderRecentEntries();
 })();
 </script>
 </body>
